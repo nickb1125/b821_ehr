@@ -39,10 +39,8 @@ subjects_col_order = [
 ]  # O(1)
 
 list_of_list = list[list[str]]  # O(1)
-tuple_of_tuple = tuple[
-    tuple[str, ...], ...
-]  # need to use "..."" due to varying cases for varying functions # O(1)
-nested_dict_type = dict[str, dict[str, tuple[tuple[str, ...], ...]]]  # O(1)
+# need to use "..."" due to varying cases for varying functions
+nested_dict_type = dict[str, dict[str, list[list[str]]]]  # O(1)
 
 
 # Big O:  O(I) for subjects file, O(J) for labs file.
@@ -91,16 +89,26 @@ def reorder_columns(
     (column_order).
     """
     header = list_of_list[0]  # O(1)
+    col_order_greater_than_header = list(
+        set(column_order) - set(header)
+    )  # O(N)/O(M)
+    header_greater_than_col_order = list(
+        set(header) - set(column_order)
+    )  # O(N)/O(M)
+    if (len(col_order_greater_than_header)) != 0 or (
+        len(header_greater_than_col_order) != 0
+    ):
+        raise ValueError(
+            f"Column order and true headers dont match. Add \
+                {header_greater_than_col_order} to column order \
+                    and remove {header_greater_than_col_order} \
+                        from column order."
+        )  # O(1)
     reorder_dict = {header[i]: i for i in range(len(header))}
     # O(# of columns): O(N) for labs and O(M) for subjects
-    try:
-        index_header = [
-            reorder_dict[column_order[i]] for i in range(len(column_order))
-        ]  # O(# of columns): O(N) for labs and O(M) for subjects
-    except KeyError:
-        raise KeyError(
-            "List of list column names do not match column order list."
-        )  # O(1)
+    index_header = [
+        reorder_dict[column_order[i]] for i in range(len(column_order))
+    ]  # O(# of columns): O(N) for labs and O(M) for subjects
     if not any(item is None for item in index_header):  # O(N)
         reorder = [
             [row[idx] for idx in index_header] for row in list_of_list
@@ -108,45 +116,22 @@ def reorder_columns(
     return reorder
 
 
-# Big O: O(NI) for labs, O(MJ) for subjects
-# Explain: convert each row (i.e. O(# cols)) to tuple
-# (i.e. O(# rows))
-# How to improve: Honestly, the list to tuple conversion structure adds
-# a lot of complexity later on and does not add much complexity,
-# we can get rid of this and just use lists of lists
-def list_of_list_to_tuple_of_tuple(
-    list_of_list: list_of_list,
-) -> tuple_of_tuple:
-    """List of Lists -> Tuple of Tuples.
-
-    Converts a list of lists to tuple of tuples; for purposes of
-    tuples being immutable
-    """
-    to_tuple = tuple([tuple(row) for row in list_of_list])
-    # O(NI) for labs, O(MJ) for subjects
-    # Note: converting a list to a tuple is O(# in list)
-    return to_tuple
-
-
-# Big O: O(MJ) for subjects and O(NI) for labs
-# Explain: (1) For each tuple in the big tuple, we create a tuple of list
-# (i.e. O(length of nested tuples)) after indexing each nested tuple by
-# column index (i.e. O(length of nested tuples)) ->
-# O(#col) for individual rows –> O(#col * #row) in all.
-# (2) In addition we also have to make a tuple of the big
-# list comprehension O(# of nested tuples). Therefore,
-# Big O: O(#col*#row) + O(#row)
+# Big O: O(J) for subjects and O(I) for labs
+# Explain: (1) For each list in the list, we create a list
+# after indexing each nested list by
+# column index for individual rows. Therefore,
+# Big O: O(#row)
 
 
 # How to improve: If we remove list to tuple conversions,
 # we can improve the complexity here to O(#row)
 # This would be changed to filter_list_of_lists.
-def filter_tuple_of_tuple(
+def filter_list_of_list(
     filter_value: str,
-    values: tuple_of_tuple,
+    values: list_of_list,
     column_index: int,
     check_index: int,
-) -> tuple_of_tuple:
+) -> list_of_list:
     """Filter Tuple of Tuple.
 
     Helper function to take a tuple of tuples of strings (values) and
@@ -154,29 +139,23 @@ def filter_tuple_of_tuple(
     is equal to a specific value (filter_value). We return such columns after
     the column_index in a tuple of tuples.
     """
-    dat = tuple(  # tuple(list) is O(length of list)
-        [
-            tuple(general[column_index:])  # tuple(list) is O(length of list)
-            for general in values
-            if general[check_index] == filter_value
-        ]
-    )  # O(#col*#row) + O(#row) -> O(#col*#row)
+    dat = [
+        general[column_index:]  # tuple(list) is O(length of list)
+        for general in values
+        if general[check_index] == filter_value
+    ]  # O(#row)
     return dat
 
 
-# Big O: O(N * I * # unique tests * # unique subject)
-
-# explain: nested dict simplifies to
-# O(NI) * O(# unique tests) * O(# unique subject)
+# Big O: O(N * # unique tests * # unique subject)
 
 
-# How to improve: if we change tuple_of_tuple to list_of_list then we have
+# Explain: if we change tuple_of_tuple to list_of_list then we have
 # read_data: O(#row)
-# list_of_list_to_tuple_of_tuple: Deleted
 # reorder columns: O(#row*#col)
 # seperate_lines: O(#row*#col)
 # filter_tuple_of_tuple -> filter_list_of_lists: O(#row)
-# Therefore our bigO will change to
+# Therefore our bigO is
 # O(N * # unique tests * # unique subject)
 def parse_data(patient_filename: str, lab_filename: str) -> nested_dict_type:
     """Organize Lab and Subject Data into Nested Dictionary."""
@@ -187,19 +166,15 @@ def parse_data(patient_filename: str, lab_filename: str) -> nested_dict_type:
     # seperate lines of read file, reorder columns to proper, and convert
     # from list of lists to tuple of tuples for immutability. Complete
     # for both lab and general data
-    subject_values = list_of_list_to_tuple_of_tuple(
-        list_of_list=reorder_columns(
-            column_order=subjects_col_order,
-            list_of_list=seperate_lines(subject_data),
-        )  # O(MJ) + O(MJ) + O(MJ)
+    subject_values = reorder_columns(
+        column_order=subjects_col_order,
+        list_of_list=seperate_lines(subject_data),  # O(MJ) + O(MJ)
     )[
         1:
     ]  # O(1)
-    lab_values = list_of_list_to_tuple_of_tuple(
-        list_of_list=reorder_columns(
-            column_order=lab_col_order,
-            list_of_list=seperate_lines(lab_data),
-        )  # O(NI) + O(NI) + O(NI)
+    lab_values = reorder_columns(
+        column_order=lab_col_order,
+        list_of_list=seperate_lines(lab_data),  # O(NI) + O(NI)
     )[
         1:
     ]  # O(1)
@@ -212,12 +187,12 @@ def parse_data(patient_filename: str, lab_filename: str) -> nested_dict_type:
     # make nested dict
     nested_dict = {}  # O(1)
     for subject in subjects:
-        subject_general = filter_tuple_of_tuple(
+        subject_general = filter_list_of_list(
             subject, subject_values, 0, 0
-        )  # O(MJ) * O(# unique subjects)
-        subject_lab_values = filter_tuple_of_tuple(
+        )  # O(J) * O(# unique subjects)
+        subject_lab_values = filter_list_of_list(
             subject, lab_values, 1, 0
-        )  # O(NI) * O(# unique subjects)
+        )  # O(I) * O(# unique subjects)
         unique_test_list = set(
             record[1] for record in subject_lab_values
         )  # O(I) * O(# unique subjects) + O(I) * O(# unique subjects) ->
@@ -226,9 +201,9 @@ def parse_data(patient_filename: str, lab_filename: str) -> nested_dict_type:
         nested_dict[subject] = {"General": subject_general}
         # O(1) * O(# unique subjects)
         for test in unique_test_list:
-            test_this_value = filter_tuple_of_tuple(
+            test_this_value = filter_list_of_list(
                 test, subject_lab_values, 0, 1
-            )  # O(NI) * O(# unique tests) * O(# unique subject)
+            )  # O(I) * O(# unique tests) * O(# unique subject)
             nested_dict[subject][test] = test_this_value
             # O(# unique tests) * O(# unique subject)
 
@@ -273,6 +248,10 @@ def patient_is_sick(
     """Return Whether Patient is Sick."""
     # get all tests of lab_name
     lab_values = records[patient_id][lab_name]  # O(1)
+    if any(list(map(lambda x: x[2].isdigit() is False, lab_values))):
+        raise ValueError(
+            "Some test labs are not numeric! Check your data source"
+        )
     sick_list = [
         eval(lab_value[2] + operator + str(value)) for lab_value in lab_values
     ]  # O(#Patient tests for that lab)
@@ -282,29 +261,3 @@ def patient_is_sick(
 def main() -> None:
     """Test Functions."""
     pass
-    # save below for testing issue release:
-
-    # records = parse_data(
-    #     patient_filename="/Users/nickbachelder/Downloads/"
-    #     "PatientCorePopulatedTable.txt",
-    #     lab_filename="/Users/nickbachelder/Downloads/"
-    #     "LabsCorePopulatedTable.txt",
-    # )
-    # age_example_result = patient_age(
-    #     records, patient_id="1A8791E3-A61C-455A-8DEE" "-763EB90C9B2C"
-    # )
-    # sick_example_result = patient_is_sick(
-    #     records,
-    #     "1A8791E3-A61C-455A-8DEE-763EB90C9B2C",
-    #     "METABOLIC: ALBUMIN",
-    #     ">",
-    #     4.0,
-    # )
-    # if (age_example_result == 49) & (sick_example_result):
-    #     print("Module is loaded and passes example tests.")
-    # else:
-    #     print("Module is loaded and but fails at least 1 example test.")
-
-
-if __name__ == "__main__":
-    main()
