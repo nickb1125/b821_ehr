@@ -35,6 +35,10 @@ a lab value indicating threshold of sickness (value), an operator (operator) ind
 whether sickness defined as above or below threshold value, a patient id (patient_id),
 and a records file from parse_data function (records).
 
+*get_age_at_first_lab(records, patient_id)*
+Returns a patients age at their first recorded lab in the records file from
+the parse data function (records) and their patient ID (patient_id).
+
 
 
 **Example usage**
@@ -52,6 +56,8 @@ patient_is_sick(
     operator = ">"
     value = "100"
 ) -> TRUE / FALSE
+
+patient_age(records = parsed_data, patient_id: "PATID") -> Age at first lab
 
 
 

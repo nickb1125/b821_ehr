@@ -258,6 +258,29 @@ def patient_is_sick(
     return any(sick_list)  # O(#Patient tests for that lab)
 
 
-def main() -> None:
-    """Test Functions."""
-    pass
+def get_age_at_first_lab(records: nested_dict_type, patient_id: str) -> int:
+    """Get patient age at first lab."""
+    pat_df = records[patient_id]
+    lab_keys = [key for key in pat_df.keys() if key != "General"]
+    try:
+        dates_each_lab = [
+            list(
+                map(
+                    lambda x: datetime.datetime.strptime(
+                        x[-1], "%Y-%m-%d %H:%M:%S.%f"
+                    ),
+                    pat_df[key],
+                )
+            )
+            for key in lab_keys
+        ]
+    except ValueError:
+        raise ValueError("Patient has incorrectly formatted lab date(s)")
+    min_lab_date = min([min(dates) for dates in dates_each_lab])
+    pat_dob = datetime.datetime.strptime(
+        pat_df["General"][0][2], "%Y-%m-%d %H:%M:%S.%f"
+    )
+    pat_age_at_first = (
+        (min_lab_date - pat_dob).total_seconds() / 60 / 60 / 24 / 365.25
+    )
+    return int(pat_age_at_first)

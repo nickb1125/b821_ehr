@@ -354,3 +354,82 @@ def test_patient_sick_non_numeric_error() -> None:
             operator=">",
             value=36,
         )
+
+
+def test_get_patient_age_first_lab_general() -> None:
+    """Tests function to get age at first patient lab"""
+    output = {
+        "1A": {
+            "General": [
+                [
+                    "1A",
+                    "Male",
+                    "1980-06-15 02:45:40.547",
+                    "White",
+                    "Single",
+                    "English",
+                    "12.2",
+                ]
+            ],
+            "POTASSIUM": [
+                [
+                    "1A",
+                    "POTASSIUM",
+                    "10",
+                    "mg/dL",
+                    "2001-07-01 03:20:24.070",
+                ]
+            ],
+            "A1C": [
+                [
+                    "1A",
+                    "A1C",
+                    "15",
+                    "mg/dL",
+                    "2000-07-01 03:20:24.070",
+                ]
+            ],
+        }
+    }
+
+    pat_age_first_lab = functionality.get_age_at_first_lab(output, "1A")
+    assert pat_age_first_lab == 20
+
+
+def test_get_patient_age_first_lab_non_data_error() -> None:
+    """Tests function error when non-date format exists for patient"""
+    output = {
+        "1A": {
+            "General": [
+                [
+                    "1A",
+                    "Male",
+                    "1980-06-15 02:45:40.547",
+                    "White",
+                    "Single",
+                    "English",
+                    "12.2",
+                ]
+            ],
+            "POTASSIUM": [
+                [
+                    "1A",
+                    "POTASSIUM",
+                    "10",
+                    "mg/dL",
+                    "2001-07-01 03:20:24.070",
+                ]
+            ],
+            "A1C": [
+                [
+                    "1A",
+                    "A1C",
+                    "15",
+                    "mg/dL",
+                    "WRONG",
+                ]
+            ],
+        }
+    }
+    with pytest.raises(ValueError):
+        functionality.get_age_at_first_lab(output, "1A")
