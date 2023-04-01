@@ -20,45 +20,71 @@ import [folder name].functionality.py
 
 **Useful Functions**
 
-*parse_data(subject_file_name, lab_file_name):*
-Takes in lab file and subject file names and organizes into a nested dictionary
-suitable for filtering. Takes in subject_file_name (subject file name) and
-lab_file_name (lab file name).
+Functions include:
+parse_data(lab_file_name, subject_file_name) : parses lab and subject files to reorganize data. Note this is done during initialization but can be redone if neccecary.
 
-*patient_age(records, patient_id):*
-Takes in records (parsed data files from parse_data function) and patient id
-to return patient age of particular patient.
 
-*patient_is_sick(records, patient_id, lab_name, operator, value)*
+**Useful Classes**
+
+*Lab*
+
+Attributes include:
+- pat_id : Patient ID.
+- name : Lab name.
+- value : Lab value.
+- units : Lab units.
+- time : Time lab was taken.
+
+
+*Patient*
+
+Attributes include:
+- pat_id : Patient ID.
+- gender : Patient gender.
+- dob : Patient date of birth.
+- race : Patient Race.
+- age : (not input by user) Patient Age.
+- labs: (not input at initialization) Dictionary of lab object lists for lab name keys.
+
+Frontend Methods Include:
+- is_sick(lab_name, operator, value) : 
 Returns whether or not patient is sick from a particular disease or lab name (lab_name),
-a lab value indicating threshold of sickness (value), an operator (operator) indicating 
-whether sickness defined as above or below threshold value, a patient id (patient_id),
-and a records file from parse_data function (records).
-
-*get_age_at_first_lab(records, patient_id)*
-Returns a patients age at their first recorded lab in the records file from
-the parse data function (records) and their patient ID (patient_id).
-
+a lab value indicating threshold of sickness (value), an operator (operator).
+- add_labs(lab_object) :
+Adds labs to patient.labs attribute given a Lab object.
+- get_age_at_first_lab() : 
+Gets patient age at first lab.
+- get_lab_test_values(lab_name) :
+Gets all values for a particular lab test name for patient.
 
 
 **Example usage**
 
 import functionality
 
-parsed_data = functionality.parse_data("subject file name", "lab file name")
 
-patient_age(records = parsed_data, patient_id: "PATID") -> Age
-
-patient_is_sick(
-    records = parsed_data
-    patient_id = "PATID"
-    lab_name = "DISEASE"
-    operator = ">"
-    value = "100"
-) -> TRUE / FALSE
+pat_1a = functionality.Patient(
+    pat_id="1A", gender="Male", dob="2000-06-15 02:45:40.547", race="White"
+    )
 
 patient_age(records = parsed_data, patient_id: "PATID") -> Age at first lab
 
+
+pat_1a.add_labs(
+        functionality.Lab(
+            pat_id="1A",
+            name="POTASSIUM",
+            value="37",
+            units="mg/dL",
+            time="2001-07-01 03:20:24.070",
+        )
+    )
+
+
+pat_1a.age -> Age
+
+
+pat_1a.is_sick(lab_name = "DISEASE", operator = ">", value = "100") -> TRUE / FALSE
 
 
 ## For contributors:
@@ -66,7 +92,7 @@ patient_age(records = parsed_data, patient_id: "PATID") -> Age at first lab
 For testing, with current tests or adding additional tests for your lab / subjects
 files...
 
-(1) (Optional) Add tests to tess/test_functionality.py file
+(1) (Optional) Add tests to tests/test_functionality.py file
 
 (2) Run "pytest tests/test_functionality.py" in terminal (install pytest)
 
