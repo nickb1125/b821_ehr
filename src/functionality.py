@@ -4,6 +4,7 @@
 
 import datetime
 from dataclasses import dataclass
+import sqlite3
 
 list_of_list = list[list[str]]
 
@@ -73,32 +74,132 @@ def reorder_columns(
 class Lab:
     """Lab class."""
 
-    pat_id: str
-    name: str
-    value: str | float
-    units: str
-    time: str
+    lab_id: str
+
+    @property
+    def time(self) -> str:
+        """Get lab value."""
+        connection = sqlite3.connect("ehr.db")
+        cursor = connection.cursor()
+        pat_dob_info = cursor.execute(
+            f"""SELECT LabID, LabDateTime
+            FROM Labs
+            WHERE LabID= ?""",
+            (self.lab_id,),
+        )
+        recieved = pat_dob_info.fetchall()
+        connection.close()
+        time = str(recieved[0][1])
+        return time
+
+    @property
+    def value(self) -> float:
+        """Get lab value."""
+        connection = sqlite3.connect("ehr.db")
+        cursor = connection.cursor()
+        pat_dob_info = cursor.execute(
+            f"""SELECT LabID, LabValue
+            FROM Labs
+            WHERE LabID = ?""",
+            (self.lab_id,),
+        )
+        recieved = pat_dob_info.fetchall()
+        connection.close()
+        value = float(recieved[0][1])
+        return value
+
+    @property
+    def units(self) -> str:
+        """Get unit."""
+        connection = sqlite3.connect("ehr.db")
+        cursor = connection.cursor()
+        pat_dob_info = cursor.execute(
+            f"""SELECT LabID, LabUnits
+            FROM Labs
+            WHERE LabID = ?""",
+            (self.lab_id,),
+        )
+        recieved = pat_dob_info.fetchall()
+        connection.close()
+        units = str(recieved[0][1])
+        return units
+
+    @property
+    def name(self) -> str:
+        """Get lab name."""
+        connection = sqlite3.connect("ehr.db")
+        cursor = connection.cursor()
+        pat_dob_info = cursor.execute(
+            f"""SELECT LabID, LabUnits
+            FROM Labs
+            WHERE LabID = ?""",
+            (self.lab_id,),
+        )
+        recieved = pat_dob_info.fetchall()
+        connection.close()
+        name = str(recieved[0][1])
+        return name
 
 
+@dataclass
 class Patient:
     """Patient Class."""
 
-    def __init__(
-        self, pat_id: str, gender: str, dob: str, race: str
-    ) -> None:  # O(1)
-        """Initialize patient class."""
-        self.labs: dict[str, list[Lab]] = dict({})  # O(1)
+    pat_id: str
+
+    @property
+    def dob(self) -> datetime.datetime:
+        """Pateint DOB."""
+        connection = sqlite3.connect("ehr.db")
+        cursor = connection.cursor()
+        pat_dob_info = cursor.execute(
+            f"""SELECT PatientDateOfBirth
+            FROM Patients
+            WHERE PatientID = ?""",
+            (self.pat_id,),
+        )
+        recieved = pat_dob_info.fetchall()
+        connection.close()
+        dob = recieved[0][0]
         try:
-            self.dob = datetime.datetime.strptime(
-                dob, "%Y-%m-%d %H:%M:%S.%f"
-            )  # O(1)
+            return datetime.datetime.strptime(dob, "%Y-%m-%d %H:%M:%S.%f")
         except ValueError:
             raise ValueError(
-                f"DOB '{dob}' for patient {pat_id} is incorrectly formatted"
+                f"DOB '{dob}' for patient {self.pat_id} is incorrectly \
+                    formatted"
             )
-        self.gender = gender  # O(1)
-        self.race = race  # O(1)
-        self.pat_id = pat_id  # O(1)
+
+    @property
+    def gender(self) -> str:
+        """Patient gender."""
+        connection = sqlite3.connect("ehr.db")
+        cursor = connection.cursor()
+        pat_dob_info = cursor.execute(
+            f"""SELECT PatientGender
+            FROM Patients
+            WHERE PatientID = ?""",
+            (self.pat_id,),
+        )
+        recieved = pat_dob_info.fetchall()
+        connection.close()
+        gender = str(recieved[0][0])
+        return gender
+
+    @property
+    def race(self) -> str:
+        """Patient race."""
+        connection = sqlite3.connect("ehr.db")
+        cursor = connection.cursor()
+        pat_dob_info = cursor.execute(
+            f"""SELECT PatientRace
+            FROM Patients
+            WHERE PatientID = ?""",
+            (self.pat_id,),
+        )
+        recieved = pat_dob_info.fetchall()
+        connection.close()
+        race = str(recieved[0][0])
+        return race
 
     @property
     def age(self) -> int:  # O(1)
@@ -108,6 +209,24 @@ class Patient:
             time_since_birth.total_seconds() / 60 / 60 / 24 / 365.25
         )  # O(1)
         return int(time_since_birth_years)  # O(1)
+
+    @property
+    def labs(self) -> dict[str, list[Lab]]:
+        """Get patient labs and organize into dictionary by lab name."""
+        connection = sqlite3.connect("ehr.db")
+        cursor = connection.cursor()
+        lab_info_ex = cursor.execute("""SELECT LabID, LabName FROM Labs""")
+        lab_info = lab_info_ex.fetchall()
+        connection.close()
+        pat_labs: dict[str, list[Lab]] = dict()
+        for lab in lab_info:
+            lab_id = lab[0]
+            lab_name = lab[1]
+            if lab_name in pat_labs.keys():
+                pat_labs[lab_name].append(Lab(lab_id))
+            else:
+                pat_labs[lab_name] = [Lab(lab_id)]
+        return pat_labs
 
     def is_sick(
         self, lab_name: str, operator: str, value: float
@@ -126,12 +245,31 @@ class Patient:
             )  # O(1)
         return any(sick_list)  # O(1)
 
-    def add_labs(self, lab: Lab) -> None:  # O(1)
+    def add_labs(
+        self, lab_name: str, value: float, units: str, time: str
+    ) -> None:  # O(1)
         """Add lab to patient profile."""
-        if lab.name not in self.labs.keys():  # O(1)
-            self.labs[lab.name] = [lab]  # O(1)
-        else:
-            self.labs[lab.name].append(lab)  # O(1)
+        connection = sqlite3.connect("ehr.db")
+        cursor = connection.cursor()
+        lab_ids_ex = cursor.execute("""SELECT LabID FROM Labs""")
+        lab_ids = lab_ids_ex.fetchall()
+        try:
+            max_lab_id = max([lab_id[0] for lab_id in lab_ids])
+        except ValueError:
+            max_lab_id = 0
+        cursor.execute(
+            """INSERT INTO Labs VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                max_lab_id + 1,
+                self.pat_id,
+                lab_name,
+                value,
+                units,
+                time,
+            ),
+        )
+        connection.commit()
+        connection.close()
 
     def get_age_at_first_lab(self) -> int:  # O(J)
         """Get patient age at first lab."""
@@ -174,9 +312,7 @@ class Patient:
 
 
 # Big O: O(MJ + NI + J^2)
-def parse_data(
-    subjects_file_name: str, labs_file_name: str
-) -> dict[str, Patient]:
+def parse_data(subjects_file_name: str, labs_file_name: str) -> None:
     """Parse read files into dictionary of patient classes."""
     # reads data files
     try:
@@ -213,31 +349,55 @@ def parse_data(
         list_of_list=seperate_lines(lab_data),
     )  # O(NI) + O(NI)
 
-    # creates patients dirictory
-    subjects = dict(
-        {
-            patient_info[0]: Patient(
-                pat_id=patient_info[0],
-                gender=patient_info[1],
-                dob=patient_info[2],
-                race=patient_info[3],
-            )
-            for patient_info in subject_values
-        }
-    )  # O(J)
+    # creates sql database
+    connection = sqlite3.connect("ehr.db")
+    cursor = connection.cursor()
+    cursor.execute("DROP TABLE IF EXISTS Patients")
+    cursor.execute("DROP TABLE IF EXISTS Labs")
+    cursor.execute(
+        """CREATE TABLE Labs(
+                LabID VARCHAR PRIMARY KEY,
+                PatientID VARCHAR,
+                LabName VARCHAR,
+                LabValue FLOAT,
+                LabUnits VARCHAR,
+                LabDateTime TIMESTAMP)"""
+    )
+    cursor.execute(
+        """CREATE TABLE Patients(
+                PatientID VARCHAR PRIMARY KEY,
+                PatientGender VARCHAR,
+                PatientDateOfBirth TIMESTAMP,
+                PatientRace VARCHAR)"""
+    )
 
-    # adds lab classes for each patient
+    # adds patient for each patient
+
+    for patient_info in subject_values:
+        cursor.execute(
+            "INSERT INTO Patients VALUES(?, ?, ?, ?)",
+            (
+                patient_info[0],  # ID
+                patient_info[1],  # Gender
+                patient_info[2],  # DOB
+                patient_info[3],  # Race
+            ),
+        )
+
+    # add lab for each lab
+    unique_id = 0
     for lab in lab_values:
-        lab_class = Lab(
-            pat_id=lab[0],
-            name=lab[2],
-            value=lab[3],
-            units=lab[4],
-            time=lab[5],
-        )  # O(1)
-        patient = subjects.get(lab_class.pat_id)  # O(J)
-        if patient is not None:
-            patient.add_labs(lab_class)  # O(J)
-        else:
-            raise ValueError("Patient in this lab is not in records.")
-    return subjects
+        cursor.execute(
+            "INSERT INTO Labs VALUES(?, ?, ?, ?, ?, ?)",
+            (
+                unique_id,  # lab_id
+                lab[0],  # ID
+                lab[2],  # LabName
+                lab[3],  # LabValue
+                lab[4],  # LabUnits
+                lab[5],  # LabTime
+            ),
+        )
+        unique_id += 1
+    connection.commit()
+    connection.close()

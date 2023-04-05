@@ -21,14 +21,17 @@ import [folder name].functionality.py
 **Useful Functions**
 
 Functions include:
-parse_data(lab_file_name, subject_file_name) : parses lab and subject files to reorganize data. Note this is done during initialization but can be redone if neccecary.
+parse_data(lab_file_name, subject_file_name) : parses lab and subject files to reorganize data into database. Note this is done during initialization but can be redone if neccecary.
 
 
 **Useful Classes**
 
 *Lab*
 
-Attributes include:
+Lab class should not be used for storage on the frontend, but only to add new lab data to database in the
+Patient class method "add_labs()".
+
+Attributes and properties include:
 - pat_id : Patient ID.
 - name : Lab name.
 - value : Lab value.
@@ -40,11 +43,12 @@ Attributes include:
 
 Attributes include:
 - pat_id : Patient ID.
-- gender : Patient gender.
-- dob : Patient date of birth.
-- race : Patient Race.
-- age : (not input by user) Patient Age.
-- labs: (not input at initialization) Dictionary of lab object lists for lab name keys.
+
+Properities include:
+- .race
+- .age
+- .gender
+- .dob
 
 Frontend Methods Include:
 - is_sick(lab_name, operator, value) : 
@@ -62,29 +66,22 @@ Gets all values for a particular lab test name for patient.
 
 import functionality
 
-
 pat_1a = functionality.Patient(
     pat_id="1A", gender="Male", dob="2000-06-15 02:45:40.547", race="White"
     )
 
-patient_age(records = parsed_data, patient_id: "PATID") -> Age at first lab
-
 
 pat_1a.add_labs(
-        functionality.Lab(
-            pat_id="1A",
-            name="POTASSIUM",
-            value="37",
-            units="mg/dL",
-            time="2001-07-01 03:20:24.070",
+        lab_name="POTASSIUM",
+        value=10,
+        units="mg",
+        time="2022-06-15 03:20:24.070"
         )
-    )
 
 
-pat_1a.age -> Age
+pat_1a.age -> Age (i.e. 22)
 
-
-pat_1a.is_sick(lab_name = "DISEASE", operator = ">", value = "100") -> TRUE / FALSE
+pat_1a.is_sick(lab_name = "DISEASE", operator = ">", value = "100") -> FALSE
 
 
 ## For contributors:

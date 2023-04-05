@@ -1,9 +1,7 @@
 """Tests for funcitionality.py."""
-import os
-import sys
-
 import functionality
 import pytest
+import sqlite3
 import make_fake_files
 
 
@@ -80,20 +78,7 @@ def test_reorder_columns_column_order_to_short() -> None:
 
 
 def test_patient_cohort_general() -> None:
-    """Test parge data general example."""
-    pat_1a = functionality.Patient(
-        pat_id="1A", gender="Male", dob="2000-06-15 02:45:40.547", race="White"
-    )
-    pat_1a.add_labs(
-        functionality.Lab(
-            pat_id="1A",
-            name="POTASSIUM",
-            value="37",
-            units="mg/dL",
-            time="2001-07-01 03:20:24.070",
-        )
-    )
-
+    """Test parse data general example."""
     test_sub_table = [
         [
             "PatientID",
@@ -129,27 +114,24 @@ def test_patient_cohort_general() -> None:
         sub_filenames,
         test_filenames,
     ):
-        output = functionality.parse_data(sub_filenames, test_filenames)
-        assert output["1A"].get_lab_test_values(
-            "POTASSIUM"
-        ) == pat_1a.get_lab_test_values("POTASSIUM")
+        functionality.parse_data(sub_filenames, test_filenames)
+        connection = sqlite3.connect("ehr.db")
+        cursor = connection.cursor()
+        pat_1a_subjects_row_ex = cursor.execute("""SELECT * FROM Patients""")
+        pat_1a_subjects_row = pat_1a_subjects_row_ex.fetchall()
+        assert pat_1a_subjects_row == [
+            (
+                "1A",
+                "Male",
+                "2000-06-15 02:45:40.547",
+                "White",
+            )
+        ]
+        connection.close()
 
 
 def test_parse_data_input_wrong_column_order() -> None:
     """Test parse data with switched up column order input."""
-    pat_1a = functionality.Patient(
-        pat_id="1A", gender="Male", dob="2000-06-15 02:45:40.547", race="White"
-    )
-    pat_1a.add_labs(
-        functionality.Lab(
-            pat_id="1A",
-            name="POTASSIUM",
-            value="37",
-            units="mg/dL",
-            time="2001-07-01 03:20:24.070",
-        )
-    )
-
     test_sub_table = [
         [
             "PatientID",
@@ -185,82 +167,142 @@ def test_parse_data_input_wrong_column_order() -> None:
         sub_filenames,
         test_filenames,
     ):
-        output = functionality.parse_data(sub_filenames, test_filenames)
-        assert output["1A"].get_lab_test_values(
-            "POTASSIUM"
-        ) == pat_1a.get_lab_test_values("POTASSIUM")
+        functionality.parse_data(sub_filenames, test_filenames)
+        connection = sqlite3.connect("ehr.db")
+        cursor = connection.cursor()
+        pat_1a_labs_row_ex = cursor.execute("""SELECT * FROM Labs""")
+        pat_1a_labs_row = pat_1a_labs_row_ex.fetchall()
+        assert pat_1a_labs_row == [
+            (
+                "0",
+                "1A",
+                "POTASSIUM",
+                37.0,
+                "mg/dL",
+                "2001-07-01 03:20:24.070",
+            )
+        ]
+        connection.close()
 
 
 def test_patient_age_general() -> None:
     """Test general example of get age."""
-
-    pat_1a = functionality.Patient(
-        pat_id="1A", gender="Male", dob="2000-06-15 02:45:40.547", race="White"
+    connection = sqlite3.connect("ehr.db")
+    cursor = connection.cursor()
+    cursor.execute("DROP TABLE IF EXISTS Patients")
+    cursor.execute(
+        """CREATE TABLE Patients(
+                PatientID VARCHAR PRIMARY KEY,
+                PatientGender VARCHAR,
+                PatientDateOfBirth TIMESTAMP,
+                PatientRace VARCHAR)"""
     )
-    assert pat_1a.age == 22
+    cursor.execute(
+        "INSERT INTO Patients Values (?, ?, ?, ?)",
+        ("1A", "Male", "2001-07-01 03:20:24.070", "White"),
+    )
+    connection.commit()
+    pat_1a = functionality.Patient(pat_id="1A")
+    assert pat_1a.age == 21
 
 
 def test_patient_age_wrong_format_dob() -> None:
     """Test wrong format error for date of birth in data input."""
+    connection = sqlite3.connect("ehr.db")
+    cursor = connection.cursor()
+    cursor.execute("DROP TABLE IF EXISTS Patients")
+    cursor.execute(
+        """CREATE TABLE Patients(
+                PatientID VARCHAR PRIMARY KEY,
+                PatientGender VARCHAR,
+                PatientDateOfBirth TIMESTAMP,
+                PatientRace VARCHAR)"""
+    )
+    cursor.execute(
+        "INSERT INTO Patients Values (?, ?, ?, ?)",
+        ("1A", "Male", "2000-06-15 02:40.547", "White"),
+    )
+    connection.commit()
+    pat_1a = functionality.Patient(pat_id="1A")
     with pytest.raises(ValueError):
-        pat_1a = functionality.Patient(
-            pat_id="1A", gender="Male", dob="2000-06-15", race="White"
-        )
+        pat_1a.dob
+
+
+test_patient_age_wrong_format_dob()
 
 
 def test_patient_sick() -> None:
     """Test (1) general get if sick patient example & not a patient error."""
-    pat_1a = functionality.Patient(
-        pat_id="1A", gender="Male", dob="2000-06-15 02:45:40.547", race="White"
+    connection = sqlite3.connect("ehr.db")
+    cursor = connection.cursor()
+    cursor.execute("DROP TABLE IF EXISTS Patients")
+    cursor.execute("DROP TABLE IF EXISTS Labs")
+    cursor.execute(
+        """CREATE TABLE Patients(
+                PatientID VARCHAR PRIMARY KEY,
+                PatientGender VARCHAR,
+                PatientDateOfBirth TIMESTAMP,
+                PatientRace VARCHAR)"""
     )
+    cursor.execute(
+        """CREATE TABLE Labs(
+                LabID VARCHAR PRIMARY KEY,
+                PatientID VARCHAR,
+                LabName VARCHAR,
+                LabValue FLOAT,
+                LabUnits VARCHAR,
+                LabDateTime TIMESTAMP)"""
+    )
+    cursor.execute(
+        "INSERT INTO Patients Values (?, ?, ?, ?)",
+        ("1A", "Male", "2000-06-15 02:45:40.547", "White"),
+    )
+    connection.commit()
+    connection.close()
+    pat_1a = functionality.Patient(pat_id="1A")
     pat_1a.add_labs(
-        functionality.Lab(
-            pat_id="1A",
-            name="POTASSIUM",
-            value="37",
-            units="mg/dL",
-            time="2001-07-01 03:20:24.070",
-        )
+        lab_name="POTASSIUM",
+        value=100,
+        units="mg",
+        time="2001-06-15 02:45:40.547",
     )
-
     # test general
     assert pat_1a.is_sick(lab_name="POTASSIUM", operator=">", value=36) is True
 
 
-def test_patient_sick_non_numeric_error() -> None:
-    """Test error for patient lab value not numeric."""
-    with pytest.raises(ValueError):
-        pat_1a = functionality.Patient(
-            pat_id="1A",
-            gender="Male",
-            dob="2000-06-15 02:45:40.547",
-            race="White",
-        )
-        pat_1a.add_labs(
-            functionality.Lab(
-                pat_id="1A",
-                name="POTASSIUM",
-                value="37a",
-                units="mg/dL",
-                time="2001-07-01 03:20:24.070",
-            )
-        )
-        pat_1a.is_sick(lab_name="POTASSIUM", operator=">", value=3)
-
-
 def test_get_patient_age_first_lab_general() -> None:
     """Tests function to get age at first patient lab"""
-    pat_1a = functionality.Patient(
-        pat_id="1A", gender="Male", dob="2000-06-15 02:45:40.547", race="White"
+    connection = sqlite3.connect("ehr.db")
+    cursor = connection.cursor()
+    cursor.execute("DROP TABLE IF EXISTS Patients")
+    cursor.execute("DROP TABLE IF EXISTS Labs")
+    cursor.execute(
+        """CREATE TABLE Patients(
+                PatientID VARCHAR PRIMARY KEY,
+                PatientGender VARCHAR,
+                PatientDateOfBirth TIMESTAMP,
+                PatientRace VARCHAR)"""
     )
+    cursor.execute(
+        """CREATE TABLE Labs(
+                LabID VARCHAR PRIMARY KEY,
+                PatientID VARCHAR,
+                LabName VARCHAR,
+                LabValue FLOAT,
+                LabUnits VARCHAR,
+                LabDateTime TIMESTAMP)"""
+    )
+    cursor.execute(
+        "INSERT INTO Patients Values (?, ?, ?, ?)",
+        ("1A", "Male", "2001-07-01 03:20:24.070", "White"),
+    )
+    connection.commit()
+    pat_1a = functionality.Patient(pat_id="1A")
     pat_1a.add_labs(
-        functionality.Lab(
-            pat_id="1A",
-            name="POTASSIUM",
-            value="37",
-            units="mg/dL",
-            time="2020-07-01 03:20:24.070",
-        )
+        lab_name="POTASSIUM",
+        value=10,
+        units="mg",
+        time="2021-07-01 03:20:24.070",
     )
 
     pat_age_first_lab = pat_1a.get_age_at_first_lab()
